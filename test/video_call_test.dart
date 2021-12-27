@@ -18,6 +18,6 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    expect(await VideoCall.platformVersion, '42');
+    expect(VideoCall, '42');
   });
 }

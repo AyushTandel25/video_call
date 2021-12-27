@@ -3,6 +3,7 @@ package com.example.video_call
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.NonNull
 import com.example.basic_video_chat_flutter.OpentokVideoFactory
@@ -23,6 +24,9 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
   private var publisher: Publisher? = null
   private var subscriber: Subscriber? = null
 
+  private var tempPublisherView : View? = null
+  private var tempSubscriberView : View? = null
+
   private var flutterEngine : FlutterPlugin.FlutterPluginBinding ?= null
 
   private lateinit var opentokVideoPlatformView: OpentokVideoPlatformView
@@ -37,8 +41,13 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
         renderer?.setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE, BaseVideoRenderer.STYLE_VIDEO_FILL)
 
         view.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        opentokVideoPlatformView.publisherContainer.addView(view)
+
+        tempPublisherView = view
+
       }
+
+      opentokVideoPlatformView.subscriberContainer.addView(tempPublisherView)
+      opentokVideoPlatformView.publisherContainer.visibility = View.GONE
 
       notifyFlutter(SdkState.LOGGED_IN)
       session.publish(publisher)
@@ -59,8 +68,15 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
           setSubscriberListener(subscriberListener)
           session.subscribe(this)
 
+          opentokVideoPlatformView.subscriberContainer.removeAllViews()
           opentokVideoPlatformView.subscriberContainer.addView(view)
+          opentokVideoPlatformView.publisherContainer.visibility = View.VISIBLE
+          opentokVideoPlatformView.publisherContainer.removeAllViews()
+          opentokVideoPlatformView.publisherContainer.addView(tempPublisherView)
+
         }
+
+        notifyFlutter(SdkState.ON_CALL)
       }
     }
 
@@ -124,6 +140,12 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
     session?.connect(token)
   }
 
+  private fun cancelSession(){
+    if(session!=null){
+      session?.disconnect()
+    }
+  }
+
   private fun swapCamera() {
     publisher?.cycleCamera()
   }
@@ -176,6 +198,10 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
         initSession(apiKey, sessionId, token)
         result.success("")
       }
+      "cancelSession" -> {
+        cancelSession()
+        result.success("")
+      }
       "swapCamera" -> {
         swapCamera()
         result.success("")
@@ -202,5 +228,6 @@ enum class SdkState {
   LOGGED_OUT,
   LOGGED_IN,
   WAIT,
-  ERROR
+  ERROR,
+  ON_CALL
 }

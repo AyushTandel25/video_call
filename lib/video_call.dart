@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -7,29 +8,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// class VideoCall {
-//   static const MethodChannel _channel = MethodChannel('video_call');
-//
-//   static Future<String?> get platformVersion async {
-//     final String? version = await _channel.invokeMethod('getPlatformVersion');
-//     return version;
-//   }
-// }
-
-class OpenTokConfig {
-  static String API_KEY = "";
-  static String SESSION_ID = "";
-  static String TOKEN = "";
-
-  static void message() {
-    print('You are Calling Static Method');
-  }
-}
-
 class VideoCall extends StatefulWidget {
   final String API_KEY;
   final String SESSION_ID;
   final String TOKEN;
+
   // final VoidCallback onUpdateState;
 
   const VideoCall(
@@ -126,26 +109,38 @@ class _VideoCallState extends State<VideoCall> {
     } on PlatformException catch (e) {}
   }
 
+  Future<void> _cancelSession() async {
+    try {
+      await platformMethodChannel.invokeMethod('cancelSession');
+    } on PlatformException catch (e) {}
+  }
+
+  Size _getSize() {
+    return MediaQuery.of(context).size;
+  }
+
   @override
   void initState() {
     _initSession();
     platformMethodChannel.setMethodCallHandler(methodCallHandler);
     super.initState();
   }
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[SizedBox(height: 64), _updateView()],
-      ),
+    Size size = MediaQuery.of(context).size;
+
+    return SizedBox(
+      height: size.height,
+      width: size.width,
+      child: _updateView(),
     );
   }
 
   Widget _updateView() {
     bool toggleVideoPressed = false;
 
-    if (_sdkState == SdkState.LOGGED_OUT) {
+    if (_sdkState== SdkState.LOGGED_OUT) {
       return ElevatedButton(
           onPressed: () {
             _initSession();
@@ -155,78 +150,196 @@ class _VideoCallState extends State<VideoCall> {
       return Center(
         child: CircularProgressIndicator(),
       );
-    } else if (_sdkState == SdkState.LOGGED_IN) {
-      return Column(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: PlatformViewLink(
-              viewType: 'opentok-video-container', // custom platform-view-type
-              surfaceFactory:
-                  (BuildContext context, PlatformViewController controller) {
-                return PlatformViewSurface(
-                  controller: controller,
-                  gestureRecognizers: const <
-                      Factory<OneSequenceGestureRecognizer>>{},
-                  hitTestBehavior: PlatformViewHitTestBehavior.opaque,
-                );
-              },
-              onCreatePlatformView: (PlatformViewCreationParams params) {
-                return PlatformViewsService.initSurfaceAndroidView(
-                  id: params.id,
-                  viewType: 'opentok-video-container',
-                  // custom platform-view-type,
-                  layoutDirection: TextDirection.ltr,
-                  creationParams: {},
-                  creationParamsCodec: StandardMessageCodec(),
-                )
-                  ..addOnPlatformViewCreatedListener(
-                      params.onPlatformViewCreated)
-                  ..create();
-              },
+    } else if (_sdkState == SdkState.LOGGED_IN ||
+        _sdkState == SdkState.ON_CALL) {
+      if(Platform.isAndroid){
+        return Stack(
+          children: [
+            const AndroidView(
+              viewType: 'opentok-video-container',
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{},
+              creationParams: {},
+              creationParamsCodec: StandardMessageCodec(),
+              hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+              layoutDirection: TextDirection.ltr,
             ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  _swapCamera();
-                },
-                child: Text("Swap " "Camera"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  _toggleAudio();
-                },
-                child: Text("Toggle Audio"),
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color>(
-                    (Set<MaterialState> states) {
-                      if (!_publishAudio) return Colors.grey;
-                      return Colors.white; // Use the component's default.
-                    },
-                  ),
+            _sdkState == SdkState.LOGGED_IN
+                ? const Positioned(
+                    top: 100.0,
+                    child: Text(
+                      "Connecting",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24.0,
+                      ),
+                    ),
+                  )
+                : Container(),
+            _sdkState == SdkState.ON_CALL
+                ? Positioned(
+                    bottom: _getSize().height * 0.1,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          height: _getSize().height * 0.08,
+                          width: _getSize().height * 0.08,
+                          child: FittedBox(
+                            child: FloatingActionButton(
+                              onPressed: () async {
+                                await _toggleAudio();
+                                setState(() {});
+                              },
+                              backgroundColor: Colors.white,
+                              child: Icon(
+                                _publishAudio
+                                    ? Icons.mic_off_outlined
+                                    : Icons.mic_none_outlined,
+                                color: Colors.black45,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                          child: SizedBox(
+                            height: _getSize().height * 0.1,
+                            width: _getSize().height * 0.1,
+                            child: FittedBox(
+                              child: FloatingActionButton(
+                                onPressed: () async {
+                                  await _cancelSession();
+                                },
+                                backgroundColor: Colors.red,
+                                child: const Icon(
+                                  Icons.call_end,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: _getSize().height * 0.08,
+                          width: _getSize().height * 0.08,
+                          child: FittedBox(
+                            child: FloatingActionButton(
+                              onPressed: () async {
+                                await _toggleVideo();
+                              },
+                              backgroundColor: Colors.white,
+                              child: const Icon(
+                                Icons.flip_camera_android_outlined,
+                                color: Colors.black45,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(),
+          ],
+          alignment: Alignment.center,
+        );
+      }
+      else{
+        return Stack(
+          children: [
+            const UiKitView(
+              viewType: 'opentok-video-container',
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{},
+              creationParams: {},
+              creationParamsCodec: StandardMessageCodec(),
+              hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+              layoutDirection: TextDirection.ltr,
+            ),
+            _sdkState == SdkState.LOGGED_IN
+                ? const Positioned(
+              top: 100.0,
+              child: Text(
+                "Connecting",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24.0,
                 ),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  _toggleVideo();
-                },
-                child: Text("Toggle Video"),
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color>(
-                    (Set<MaterialState> states) {
-                      if (!_publishVideo) return Colors.grey;
-                      return Colors.white; // Use the component's default.
-                    },
+            )
+                : Container(),
+            _sdkState == SdkState.ON_CALL
+                ? Positioned(
+              bottom: _getSize().height * 0.1,
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: _getSize().height * 0.08,
+                    width: _getSize().height * 0.08,
+                    child: FittedBox(
+                      child: FloatingActionButton(
+                        onPressed: () async {
+                          await _toggleAudio();
+                          setState(() {});
+                        },
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          _publishAudio
+                              ? Icons.mic_off_outlined
+                              : Icons.mic_none_outlined,
+                          color: Colors.black45,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    child: SizedBox(
+                      height: _getSize().height * 0.1,
+                      width: _getSize().height * 0.1,
+                      child: FittedBox(
+                        child: FloatingActionButton(
+                          onPressed: () async {
+                            await _cancelSession();
+                          },
+                          backgroundColor: Colors.red,
+                          child: const Icon(
+                            Icons.call_end,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: _getSize().height * 0.08,
+                    width: _getSize().height * 0.08,
+                    child: FittedBox(
+                      child: FloatingActionButton(
+                        onPressed: () async {
+                          await _toggleVideo();
+                        },
+                        backgroundColor: Colors.white,
+                        child: const Icon(
+                          Icons.flip_camera_android_outlined,
+                          color: Colors.black45,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      );
+            )
+                : Container(),
+          ],
+          alignment: Alignment.center,
+        );
+      }
     } else {
       return Center(child: Text("ERROR"));
     }
