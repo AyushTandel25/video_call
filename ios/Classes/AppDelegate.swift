@@ -8,6 +8,7 @@ import OpenTok
         case loggedOut = "LOGGED_OUT"
         case loggedIn = "LOGGED_IN"
         case wait = "WAIT"
+        case onCall = "ON_CALL"
         case error = "ERROR"
     }
     
@@ -194,6 +195,9 @@ extension AppDelegate: OTSubscriberDelegate {
             } else {
                 OpentokVideoFactory.view?.addSubscriberView(subView)
             }
+            notifyFlutter(state: SdkState.ON_CALL)
+
+
         }
     }
     
