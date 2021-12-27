@@ -11,14 +11,14 @@ import io.flutter.plugin.common.StandardMessageCodec
 import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
 
-class OpentokVideoFactory : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
+class VideoFactory : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
 
     companion object {
-        private lateinit var view: OpentokVideoPlatformView
+        private lateinit var view: VideoPlatformView
 
-        fun getViewInstance(context: Context): OpentokVideoPlatformView {
+        fun getViewInstance(context: Context): VideoPlatformView {
             if(!this::view.isInitialized) {
-                view = OpentokVideoPlatformView(context)
+                view = VideoPlatformView(context)
             }
 
             return view
@@ -30,8 +30,8 @@ class OpentokVideoFactory : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     }
 }
 
-class OpentokVideoPlatformView(context: Context) : PlatformView {
-    private val videoContainer: OpenTokVideoContainer = OpenTokVideoContainer(context)
+class VideoPlatformView(context: Context) : PlatformView {
+    private val videoContainer: VideoContainer = VideoContainer(context)
 
     val subscriberContainer get() = videoContainer.subscriberContainer
     val publisherContainer get() = videoContainer.publisherContainer
@@ -43,7 +43,7 @@ class OpentokVideoPlatformView(context: Context) : PlatformView {
     override fun dispose() {}
 }
 
-class OpenTokVideoContainer @JvmOverloads constructor(
+class VideoContainer @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0,

@@ -23,15 +23,15 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         body: VideoCall(
           API_KEY: "47408431",
           SESSION_ID:
-              "2_MX40NzQwODQzMX5-MTY0MDU3NzI2NDM1N35GMm5xRVg4ODZKYW1TRncwNk52QkovcCt-fg",
+              "1_MX40NzQwODQzMX5-MTY0MDU5OTI5Mjk1M35rbWhsQTNhWGdtVkszNWZNdlc3YWVtSmx-fg",
           TOKEN:
-              "T1==cGFydG5lcl9pZD00NzQwODQzMSZzaWc9MDEyNjA5ZjZlNzM1NmIyMTFjYjkxOGUwZGJlM2E0Yzc2NTM1N2IzNzpzZXNzaW9uX2lkPTJfTVg0ME56UXdPRFF6TVg1LU1UWTBNRFUzTnpJMk5ETTFOMzVHTW01eFJWZzRPRFpLWVcxVFJuY3dOazUyUWtvdmNDdC1mZyZjcmVhdGVfdGltZT0xNjQwNTc3Mjc4Jm5vbmNlPTAuMTI3NTQyNjg4NjE5NTU2MSZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNjQwNTk4ODc4JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9",
+              "T1==cGFydG5lcl9pZD00NzQwODQzMSZzaWc9NDE4MTM3MzA4NmM2NTQ0YWM4YjUxNjMxNzYwNzM5MzJlMzUwODBjZjpzZXNzaW9uX2lkPTFfTVg0ME56UXdPRFF6TVg1LU1UWTBNRFU1T1RJNU1qazFNMzVyYldoc1FUTmhXR2R0Vmtzek5XWk5kbGMzWVdWdFNteC1mZyZjcmVhdGVfdGltZT0xNjQwNTk5MzE3Jm5vbmNlPTAuNjc5NDQ4MTk3NDQwODA3OCZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNjQwNjIwOTE2JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9",
         ),
       ),
     );

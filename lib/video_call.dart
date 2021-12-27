@@ -13,8 +13,6 @@ class VideoCall extends StatefulWidget {
   final String SESSION_ID;
   final String TOKEN;
 
-  // final VoidCallback onUpdateState;
-
   const VideoCall(
       {Key? key,
       required this.API_KEY,
@@ -27,23 +25,25 @@ class VideoCall extends StatefulWidget {
 }
 
 class _VideoCallState extends State<VideoCall> {
-  SdkState _sdkState = SdkState.LOGGED_OUT;
+  SdkState _sdkState = SdkState.WAIT;
   bool _publishAudio = true;
   bool _publishVideo = true;
+  DateTime previousTime = DateTime.now();
 
-  static const platformMethodChannel =
-      const MethodChannel('com.example.video_call');
+  static const platformMethodChannel = MethodChannel('com.example.video_call');
 
   Future<dynamic> methodCallHandler(MethodCall methodCall) async {
     switch (methodCall.method) {
       case 'updateState':
         {
-          setState(() {
-            var arguments = 'SdkState.${methodCall.arguments}';
-            _sdkState = SdkState.values.firstWhere((v) {
-              return v.toString() == arguments;
-            });
+          var arguments = 'SdkState.${methodCall.arguments}';
+          _sdkState = SdkState.values.firstWhere((v) {
+            return v.toString() == arguments;
           });
+          // if (_sdkState == SdkState.LOGGED_OUT) {
+          //   Navigator.pop(context);
+          // }
+          setState(() {});
         }
         break;
       default:
@@ -54,7 +54,6 @@ class _VideoCallState extends State<VideoCall> {
   Future<void> _initSession() async {
     await requestPermissions();
 
-    String token = "ALICE_TOKEN";
     dynamic params = {
       'apiKey': widget.API_KEY,
       'sessionId': widget.SESSION_ID,
@@ -63,16 +62,6 @@ class _VideoCallState extends State<VideoCall> {
 
     try {
       await platformMethodChannel.invokeMethod('initSession', params);
-    } on PlatformException catch (e) {
-      print(e);
-    }
-  }
-
-  Future<void> _makeCall() async {
-    try {
-      await requestPermissions();
-
-      await platformMethodChannel.invokeMethod('makeCall');
     } on PlatformException catch (e) {
       print(e);
     }
@@ -137,26 +126,27 @@ class _VideoCallState extends State<VideoCall> {
     );
   }
 
-  Widget _updateView() {
-    bool toggleVideoPressed = false;
+  IconData getCameraSwitchWidget() {
+    if (Platform.isAndroid) {
+      return Icons.flip_camera_android_outlined;
+    } else {
+      return Icons.flip_camera_ios_outlined;
+    }
+  }
 
-    if (_sdkState== SdkState.LOGGED_OUT) {
-      return ElevatedButton(
-          onPressed: () {
-            _initSession();
-          },
-          child: Text("Init session"));
-    } else if (_sdkState == SdkState.WAIT) {
-      return Center(
+  Widget _updateView() {
+
+    if (_sdkState == SdkState.WAIT) {
+      return const Center(
         child: CircularProgressIndicator(),
       );
     } else if (_sdkState == SdkState.LOGGED_IN ||
         _sdkState == SdkState.ON_CALL) {
-      if(Platform.isAndroid){
+      if (Platform.isAndroid) {
         return Stack(
           children: [
             const AndroidView(
-              viewType: 'opentok-video-container',
+              viewType: 'video-container',
               gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{},
               creationParams: {},
               creationParamsCodec: StandardMessageCodec(),
@@ -177,80 +167,51 @@ class _VideoCallState extends State<VideoCall> {
                     ),
                   )
                 : Container(),
-            _sdkState == SdkState.ON_CALL
-                ? Positioned(
-                    bottom: _getSize().height * 0.1,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          height: _getSize().height * 0.08,
-                          width: _getSize().height * 0.08,
-                          child: FittedBox(
-                            child: FloatingActionButton(
-                              onPressed: () async {
-                                await _toggleAudio();
-                                setState(() {});
-                              },
-                              backgroundColor: Colors.white,
-                              child: Icon(
-                                _publishAudio
-                                    ? Icons.mic_off_outlined
-                                    : Icons.mic_none_outlined,
-                                color: Colors.black45,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                          child: SizedBox(
-                            height: _getSize().height * 0.1,
-                            width: _getSize().height * 0.1,
-                            child: FittedBox(
-                              child: FloatingActionButton(
-                                onPressed: () async {
-                                  await _cancelSession();
-                                },
-                                backgroundColor: Colors.red,
-                                child: const Icon(
-                                  Icons.call_end,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          height: _getSize().height * 0.08,
-                          width: _getSize().height * 0.08,
-                          child: FittedBox(
-                            child: FloatingActionButton(
-                              onPressed: () async {
-                                await _toggleVideo();
-                              },
-                              backgroundColor: Colors.white,
-                              child: const Icon(
-                                Icons.flip_camera_android_outlined,
-                                color: Colors.black45,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+            Positioned(
+              bottom: _getSize().height * 0.1,
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  VideoCallButtons(
+                    onPress: () async {
+                      await _toggleAudio();
+                      setState(() {});
+                    },
+                    icon: _publishAudio
+                        ? Icons.mic_off_outlined
+                        : Icons.mic_none_outlined,
+                    isCancelCall: false,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: VideoCallButtons(
+                      onPress: () async {
+                        await _cancelSession();
+                      },
+                      icon: Icons.call_end_outlined,
+                      isCancelCall: true,
                     ),
-                  )
-                : Container(),
+                  ),
+                  VideoCallButtons(
+                    onPress: () async {
+                      await _swapCamera();
+                      setState(() {});
+                    },
+                    icon: getCameraSwitchWidget(),
+                    isCancelCall: false,
+                  ),
+                ],
+              ),
+            ),
           ],
           alignment: Alignment.center,
         );
-      }
-      else{
+      } else {
         return Stack(
           children: [
             const UiKitView(
-              viewType: 'opentok-video-container',
+              viewType: 'video-container',
               gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{},
               creationParams: {},
               creationParamsCodec: StandardMessageCodec(),
@@ -259,90 +220,97 @@ class _VideoCallState extends State<VideoCall> {
             ),
             _sdkState == SdkState.LOGGED_IN
                 ? const Positioned(
-              top: 100.0,
-              child: Text(
-                "Connecting",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24.0,
-                ),
-              ),
-            )
+                    top: 100.0,
+                    child: Text(
+                      "Connecting",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24.0,
+                      ),
+                    ),
+                  )
                 : Container(),
-            _sdkState == SdkState.ON_CALL
-                ? Positioned(
+            Positioned(
               bottom: _getSize().height * 0.1,
               child: Row(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
-                    height: _getSize().height * 0.08,
-                    width: _getSize().height * 0.08,
-                    child: FittedBox(
-                      child: FloatingActionButton(
-                        onPressed: () async {
-                          await _toggleAudio();
-                          setState(() {});
-                        },
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          _publishAudio
-                              ? Icons.mic_off_outlined
-                              : Icons.mic_none_outlined,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ),
+                  VideoCallButtons(
+                    onPress: () async {
+                      await _toggleAudio();
+                      setState(() {});
+                    },
+                    icon: _publishAudio
+                        ? Icons.mic_off_outlined
+                        : Icons.mic_none_outlined,
+                    isCancelCall: false,
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                    child: SizedBox(
-                      height: _getSize().height * 0.1,
-                      width: _getSize().height * 0.1,
-                      child: FittedBox(
-                        child: FloatingActionButton(
-                          onPressed: () async {
-                            await _cancelSession();
-                          },
-                          backgroundColor: Colors.red,
-                          child: const Icon(
-                            Icons.call_end,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: VideoCallButtons(
+                      onPress: () async {
+                        await _cancelSession();
+                      },
+                      icon: Icons.call_end_outlined,
+                      isCancelCall: true,
                     ),
                   ),
-                  SizedBox(
-                    height: _getSize().height * 0.08,
-                    width: _getSize().height * 0.08,
-                    child: FittedBox(
-                      child: FloatingActionButton(
-                        onPressed: () async {
-                          await _toggleVideo();
-                        },
-                        backgroundColor: Colors.white,
-                        child: const Icon(
-                          Icons.flip_camera_android_outlined,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ),
+                  VideoCallButtons(
+                    onPress: () async {
+                      await _swapCamera();
+                      setState(() {});
+                    },
+                    icon: getCameraSwitchWidget(),
+                    isCancelCall: false,
                   ),
                 ],
               ),
-            )
-                : Container(),
+            ),
           ],
           alignment: Alignment.center,
         );
       }
     } else {
-      return Center(child: Text("ERROR"));
+      return Container();
     }
+  }
+}
+
+class VideoCallButtons extends StatelessWidget {
+  final VoidCallback onPress;
+  final IconData icon;
+  final bool isCancelCall;
+
+  const VideoCallButtons(
+      {Key? key,
+      required this.onPress,
+      required this.icon,
+      required this.isCancelCall})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: isCancelCall
+          ? MediaQuery.of(context).size.height * 0.1
+          : MediaQuery.of(context).size.height * 0.08,
+      width: isCancelCall
+          ? MediaQuery.of(context).size.height * 0.1
+          : MediaQuery.of(context).size.height * 0.08,
+      child: FittedBox(
+        child: FloatingActionButton(
+          onPressed: onPress,
+          backgroundColor: !isCancelCall ? Colors.white : Colors.red,
+          child: Icon(
+            icon,
+            color: !isCancelCall ? Colors.black45 : Colors.white,
+          ),
+        ),
+      ),
+    );
   }
 }
 

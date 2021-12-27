@@ -1,15 +1,15 @@
 package com.example.video_call
 
+import android.opengl.GLSurfaceView
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.NonNull
-import com.example.basic_video_chat_flutter.OpentokVideoFactory
-import com.example.basic_video_chat_flutter.OpentokVideoPlatformView
+import com.example.basic_video_chat_flutter.VideoFactory
+import com.example.basic_video_chat_flutter.VideoPlatformView
 import com.opentok.android.*
-import io.flutter.embedding.engine.FlutterEngine
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -27,9 +27,11 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
   private var tempPublisherView : View? = null
   private var tempSubscriberView : View? = null
 
+  private var isOriginalPosition = true
+
   private var flutterEngine : FlutterPlugin.FlutterPluginBinding ?= null
 
-  private lateinit var opentokVideoPlatformView: OpentokVideoPlatformView
+  private lateinit var videoPlatformView: VideoPlatformView
 
   private val sessionListener: Session.SessionListener = object: Session.SessionListener {
     override fun onConnected(session: Session) {
@@ -46,8 +48,14 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
 
       }
 
-      opentokVideoPlatformView.subscriberContainer.addView(tempPublisherView)
-      opentokVideoPlatformView.publisherContainer.visibility = View.GONE
+      if (publisher?.view is GLSurfaceView) {
+        (publisher?.view as GLSurfaceView).setZOrderOnTop(true)
+      }
+
+      publisher?.publishAudio = true
+
+      videoPlatformView.subscriberContainer.addView(tempPublisherView)
+      videoPlatformView.publisherContainer.visibility = View.GONE
 
       notifyFlutter(SdkState.LOGGED_IN)
       session.publish(publisher)
@@ -68,15 +76,45 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
           setSubscriberListener(subscriberListener)
           session.subscribe(this)
 
-          opentokVideoPlatformView.subscriberContainer.removeAllViews()
-          opentokVideoPlatformView.subscriberContainer.addView(view)
-          opentokVideoPlatformView.publisherContainer.visibility = View.VISIBLE
-          opentokVideoPlatformView.publisherContainer.removeAllViews()
-          opentokVideoPlatformView.publisherContainer.addView(tempPublisherView)
+          tempSubscriberView = view
+
+          videoPlatformView.subscriberContainer.removeAllViews()
+          videoPlatformView.subscriberContainer.addView(tempSubscriberView)
+          videoPlatformView.publisherContainer.visibility = View.VISIBLE
+          videoPlatformView.publisherContainer.removeAllViews()
+          videoPlatformView.publisherContainer.addView(tempPublisherView)
 
         }
 
+        videoPlatformView.subscriberContainer.setOnClickListener {
+          swapViews()
+        }
+
+        videoPlatformView.publisherContainer.setOnClickListener {
+          swapViews()
+        }
+
         notifyFlutter(SdkState.ON_CALL)
+
+      }
+
+    }
+
+    fun swapViews(){
+      if(videoPlatformView.publisherContainer.childCount!=0 && videoPlatformView.subscriberContainer.childCount!=0){
+        if(isOriginalPosition){
+          videoPlatformView.subscriberContainer.removeAllViews()
+          videoPlatformView.subscriberContainer.addView(tempPublisherView)
+          videoPlatformView.publisherContainer.removeAllViews()
+          videoPlatformView.publisherContainer.addView(tempSubscriberView)
+        }
+        else{
+          videoPlatformView.subscriberContainer.removeAllViews()
+          videoPlatformView.subscriberContainer.addView(tempSubscriberView)
+          videoPlatformView.publisherContainer.removeAllViews()
+          videoPlatformView.publisherContainer.addView(tempPublisherView)
+        }
+        isOriginalPosition = !isOriginalPosition
       }
     }
 
@@ -89,7 +127,7 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
       if (subscriber != null) {
         subscriber = null
 
-        opentokVideoPlatformView.subscriberContainer.removeAllViews()
+        videoPlatformView.subscriberContainer.removeAllViews()
       }
     }
 
@@ -152,6 +190,7 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
 
   private fun toggleAudio(publishAudio: Boolean) {
     publisher?.publishAudio = publishAudio
+    Log.d("audio","$publishAudio")
   }
 
   private fun toggleVideo(publishVideo: Boolean) {
@@ -165,12 +204,12 @@ class VideoCallPlugin: FlutterPlugin, MethodCallHandler {
 
     flutterEngine = flutterPluginBinding
 
-    opentokVideoPlatformView = OpentokVideoFactory.getViewInstance(flutterPluginBinding.applicationContext)
+    videoPlatformView = VideoFactory.getViewInstance(flutterPluginBinding.applicationContext)
 
     flutterPluginBinding
       .platformViewRegistry
-      // opentok-video-container is a custom platform-view-type
-      .registerViewFactory("opentok-video-container", OpentokVideoFactory())
+      // video-container is a custom platform-view-type
+      .registerViewFactory("video-container", VideoFactory())
 
     channel.setMethodCallHandler(this)
 
